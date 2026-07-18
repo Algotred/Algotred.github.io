@@ -285,11 +285,130 @@
     transition: opacity 0.4s ease 0.3s;
   }
   .hint.visible { opacity: 1; }
+
+  /* ---------- Site nav (local, matches violet theme) ---------- */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+    background: rgba(18, 10, 34, 0.85);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--card-border);
+  }
+
+  .header .container {
+    width: min(900px, 92%);
+    margin: auto;
+  }
+
+  .navbar {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .navbar .logo {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 24px;
+    list-style: none;
+  }
+
+  .nav-links a {
+    font-size: 14px;
+    color: var(--text-dim);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .nav-links a:hover { color: var(--text); }
+
+  .menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .back-link {
+    display: block;
+    width: min(900px, 92%);
+    margin: 20px auto 0;
+    font-size: 13px;
+    color: var(--text-dim);
+    text-decoration: none;
+  }
+
+  .back-link:hover { color: var(--text); }
+
+  @media (max-width: 640px) {
+    .menu-toggle { display: block; }
+    .nav-links {
+      position: absolute;
+      top: 64px;
+      left: 0; right: 0;
+      display: none;
+      flex-direction: column;
+      gap: 0;
+      padding: 16px 20px;
+      background: var(--bg-deep);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .nav-links.active { display: flex; }
+    .nav-links a { display: block; padding: 12px 0; }
+  }
+
+  /* ---------- Site footer (local) ---------- */
+  .site-footer {
+    width: 100%;
+    margin-top: 48px;
+    padding: 28px 0 8px;
+    border-top: 1px solid var(--card-border);
+    text-align: center;
+  }
+
+  .site-footer .container { width: min(900px, 92%); margin: auto; }
+
+  .site-footer p {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .site-footer a { color: var(--text-dim); text-decoration: none; }
+  .site-footer a:hover { color: var(--text); }
 </style>
 </head>
 <body>
 
-  <div class="brand">🔶️<span>ALGOTRED</span></div>
+<header class="header">
+<div class="container">
+<nav class="navbar">
+<a href="../index.html" class="logo">Algotred</a>
+<button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation">☰</button>
+<ul class="nav-links" id="navLinks">
+<li><a href="../index.html#highlights">Highlights</a></li>
+<li><a href="../tools/index.html">Tools</a></li>
+<li><a href="../index.html#collections">Collections</a></li>
+<li><a href="../index.html#contact">Contact</a></li>
+</ul>
+</nav>
+</div>
+</header>
+
+<a href="../tools/index.html" class="back-link">← Back to Tools</a>
+
+  <div class="brand">▲ <span>ALGOTRED</span></div>
 
   <div class="intro">
     <h1>What's Your Stats? 🎲</h1>
@@ -329,6 +448,17 @@
 
   <div class="hint" id="hint">Tip: try your friends' names and compare results</div>
 
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 2026 Algotred · <a href="../index.html">algotred.github.io</a></p>
+    </div>
+  </footer>
+
+<script>
+  document.getElementById('menuToggle')?.addEventListener('click', () => {
+    document.getElementById('navLinks').classList.toggle('active');
+  });
+</script>
 <script>
   // ---------- Seeded RNG (mulberry32, seeded from string hash) ----------
   function hashString(str) {
@@ -535,3 +665,4 @@
 
 </body>
 </html>
+

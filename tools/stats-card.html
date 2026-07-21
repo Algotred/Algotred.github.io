@@ -146,7 +146,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 11px;
   }
 
   .stat-emoji {
@@ -215,6 +215,7 @@
   /* ---------- Actions ---------- */
   .actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     width: 100%;
     max-width: 340px;
@@ -224,6 +225,8 @@
   }
 
   .actions.visible { opacity: 1; }
+
+  .actions .action-btn { min-width: 100px; }
 
   .action-btn {
     flex: 1;
@@ -442,6 +445,7 @@
   </div>
 
   <div class="actions" id="actions">
+    <button class="action-btn" id="downloadBtn">🖼️ Save image</button>
     <button class="action-btn" id="copyBtn">📋 Copy as text</button>
     <button class="action-btn" id="rerollBtn">🔄 Roll again</button>
   </div>
@@ -531,7 +535,7 @@
     "Built Different 🔥",
   ];
 
-  const NUM_STATS = 5;
+  const NUM_STATS = 6;
 
   function generate(name) {
     const statRand = seededRandom(name, 'select');
@@ -653,10 +657,185 @@
     return `${result.clean}'s Stat Card\n${lines.join('\n')}\n${result.tag}\nCheck yours: ${TOOL_URL}`;
   }
 
-  document.getElementById('waBtn').addEventListener('click', () => {
+  // ---------- Canvas card renderer ----------
+  // Draws the stat card as an actual image so it can be shared/downloaded
+  // as a picture (no WhatsApp text/character limits apply to images).
+  async function renderCardToBlob(result) {
+    const W = 720, H = 960;
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // Background gradient (matches on-screen card)
+    const bg = ctx.createRadialGradient(W * 0.2, 0, 0, W * 0.5, H * 0.5, H);
+    bg.addColorStop(0, '#2A1750');
+    bg.addColorStop(0.45, '#1B1033');
+    bg.addColorStop(1, '#120A22');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Card panel
+    const pad = 48;
+    const cardX = pad, cardY = 90, cardW = W - pad * 2, cardH = H - 90 - 60;
+    ctx.save();
+    roundRect(ctx, cardX, cardY, cardW, cardH, 28);
+    const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
+    cardGrad.addColorStop(0, '#251440');
+    cardGrad.addColorStop(1, '#1E0F38');
+    ctx.fillStyle = cardGrad;
+    ctx.fill();
+    ctx.strokeStyle = '#3A2260';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+
+    // Brand
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#B8A9D9';
+    ctx.font = '600 22px Fredoka, sans-serif';
+    ctx.fillText('▲ ALGOTRED', W / 2, 50);
+
+    // Name
+    ctx.fillStyle = '#FFF8E7';
+    ctx.font = '600 42px Fredoka, sans-serif';
+    ctx.fillText(result.clean, W / 2, cardY + 62);
+
+    // Subtitle
+    ctx.fillStyle = '#B8A9D9';
+    ctx.font = '600 16px Inter, sans-serif';
+    ctx.fillText('STAT CARD', W / 2, cardY + 92);
+
+    // Stat rows
+    ctx.textAlign = 'left';
+    const rowStart = cardY + 130;
+    const rowH = (cardH - 130 - 90) / result.results.length;
+    const rowX = cardX + 36;
+    const rowW = cardW - 72;
+
+    result.results.forEach((stat, i) => {
+      const y = rowStart + i * rowH;
+      const displayValue = stat.unit === '%' ? `${stat.value}%` : stat.value;
+
+      // Emoji
+      ctx.font = '30px sans-serif';
+      ctx.fillText(stat.emoji, rowX, y + 26);
+
+      // Label
+      ctx.fillStyle = '#B8A9D9';
+      ctx.font = '500 20px Inter, sans-serif';
+      ctx.fillText(stat.label, rowX + 44, y + 16);
+
+      // Value (right aligned)
+      ctx.textAlign = 'right';
+      ctx.fillStyle = stat.color;
+      ctx.font = '700 22px "Space Grotesk", sans-serif';
+      ctx.fillText(String(displayValue), rowX + rowW, y + 16);
+      ctx.textAlign = 'left';
+
+      // Track
+      const trackY = y + 28;
+      const trackH = 10;
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      roundRect(ctx, rowX, trackY, rowW, trackH, 6);
+      ctx.fill();
+
+      // Fill
+      const pct = stat.unit === '%' ? stat.value / 100 : stat.value / stat.max;
+      ctx.fillStyle = stat.color;
+      roundRect(ctx, rowX, trackY, rowW * Math.min(pct, 1), trackH, 6);
+      ctx.fill();
+    });
+
+    // Tag (footer inside card)
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#FFD166';
+    ctx.font = '600 22px Fredoka, sans-serif';
+    ctx.fillText(result.tag, W / 2, cardY + cardH - 34);
+
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  async function shareCardImage(result) {
+    const blob = await renderCardToBlob(result);
+    const file = new File([blob], `${result.clean.replace(/\s+/g, '_')}_stat_card.png`, { type: 'image/png' });
+    const captionText = `Check yours: ${TOOL_URL}`;
+
+    // Try native share sheet with the image file first (works on most modern Android/Chrome)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], text: captionText });
+        return;
+      } catch (err) {
+        // user cancelled or share failed — fall through to download
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    // Fallback: download the image, then show instructions for manual sharing
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    alert('Image saved! Open WhatsApp → Status → pick the saved image to share it.');
+  }
+
+  document.getElementById('downloadBtn').addEventListener('click', async (e) => {
     if (!lastResult) return;
-    const text = buildShareText(lastResult);
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    const btn = e.currentTarget;
+    const original = btn.textContent;
+    btn.textContent = 'Rendering...';
+    btn.disabled = true;
+    try {
+      const blob = await renderCardToBlob(lastResult);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${lastResult.clean.replace(/\s+/g, '_')}_stat_card.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      btn.textContent = '✅ Saved!';
+    } catch (err) {
+      console.error(err);
+      btn.textContent = '❌ Failed';
+    } finally {
+      setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1500);
+    }
+  });
+
+  document.getElementById('waBtn').addEventListener('click', async (e) => {
+    if (!lastResult) return;
+    const btn = e.currentTarget;
+    const original = btn.innerHTML;
+    btn.innerHTML = 'Preparing...';
+    btn.disabled = true;
+    try {
+      await shareCardImage(lastResult);
+    } catch (err) {
+      console.error(err);
+      // last-resort fallback: text share
+      const text = buildShareText(lastResult);
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    } finally {
+      btn.innerHTML = original;
+      btn.disabled = false;
+    }
   });
 
   document.getElementById('fbBtn').addEventListener('click', () => {

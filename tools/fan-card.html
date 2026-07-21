@@ -672,7 +672,6 @@
 
     // ---------- "OFFICIAL SUPPORTER" bar ----------
     const barY = headerH + 5;
-    const barH = 40;
     ctx.fillStyle = '#161616';
     ctx.fillRect(0, barY, W, barH);
     ctx.textAlign = 'center';
@@ -681,7 +680,6 @@
     ctx.fillText('OFFICIAL SUPPORTER CARD', W / 2, barY + 26);
 
     // ---------- Body ----------
-    const bodyTop = barY + barH + 24;
     const leftColX = 28;
     const leftColW = 380;
     const rightColX = leftColX + leftColW + 20;
@@ -697,7 +695,6 @@
     ];
 
     let fy = bodyTop;
-    const rowH = 74;
     fields.forEach(f => {
       // label chip
       ctx.fillStyle = club.c1;

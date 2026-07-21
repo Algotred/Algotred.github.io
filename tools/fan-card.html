@@ -595,7 +595,29 @@
 
   function drawCard() {
     const canvas = document.getElementById('fanCardCanvas');
-    const W = 720, H = 1140;
+    const W = 720;
+    // Layout is entirely deterministic (fixed field count, fixed row heights),
+    // so compute the exact content height up front instead of guessing a
+    // fixed canvas size — this is what caused the empty gap bug before.
+    const headerH = 150;
+    const barH = 40;
+    const bodyTop = headerH + 5 + barH + 24;
+    const numFields = 5;
+    const rowH = 74;
+    const fieldsEndY = bodyTop + numFields * rowH;
+    const quoteH = 74;
+    const quoteGap = 14;
+    const sigLabelGap = 100; // sigY = quoteY + 100
+    const sigBoxH = 70;
+    const sigBottomPad = 24;
+    const footerH = 150;
+
+    const quoteY = fieldsEndY + quoteGap;
+    const sigY = quoteY + sigLabelGap;
+    const sigBottom = sigY + 12 + sigBoxH;
+    const footerY = sigBottom + sigBottomPad;
+    const H = footerY + footerH;
+
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d');
@@ -608,7 +630,6 @@
     ctx.fillRect(0, 0, W, H);
 
     // ---------- Header band ----------
-    const headerH = 150;
     const headerGrad = ctx.createLinearGradient(0, 0, W, headerH);
     headerGrad.addColorStop(0, club.c1);
     headerGrad.addColorStop(1, hexToRgba(club.c1, 0.82));
@@ -766,7 +787,6 @@
     ctx.stroke();
 
     // ---------- Meme quote banner ----------
-    const quoteY = fy + 14;
     ctx.save();
     roundRect(ctx, 28, quoteY, W - 56, 74, 12);
     ctx.fillStyle = hexToRgba(club.c1, 0.1);
@@ -782,7 +802,6 @@
     wrapText(ctx, `"${club.meme}"`, W / 2, quoteY + 34, W - 100, 28);
 
     // ---------- Signature ----------
-    const sigY = quoteY + 100;
     ctx.textAlign = 'left';
     ctx.fillStyle = '#161616';
     ctx.font = '700 11px Inter, sans-serif';
@@ -800,8 +819,6 @@
     }
 
     // ---------- Stadium footer band ----------
-    const footerH = 150;
-    const footerY = H - footerH;
     ctx.save();
     roundRect(ctx, 0, footerY, W, footerH, 0);
     ctx.clip();
@@ -824,8 +841,8 @@
 
     ctx.textAlign = 'center';
     ctx.fillStyle = club.c2 === '#FFFFFF' ? '#fff' : club.c2;
-    ctx.font = '400 30px Anton, sans-serif';
-    ctx.fillText(`${club.meme.split(' ').slice(0,3).join(' ').toUpperCase()}`, W/2, footerY + 44);
+    ctx.font = '400 28px Anton, sans-serif';
+    wrapText(ctx, club.meme.toUpperCase(), W/2, footerY + 46, W - 80, 32);
 
     ctx.font = '600 13px Inter, sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.85)';

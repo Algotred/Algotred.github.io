@@ -427,7 +427,7 @@
   const CLUBS = [
     { name: 'Liverpool', slug: 'liverpool', c1: '#C8102E', c2: '#F6EB61', meme: "You'll Never Walk Alone." },
     { name: 'Manchester United', slug: 'man-united', c1: '#DA291C', c2: '#FBE122', meme: "Glory Glory Man United." },
-    { name: 'Manchester City', slug: 'man-city', c1: '#6CABDD', c2: '#1C2C5B', meme: "Til the wheels fall off." },
+    { name: 'Manchester City', slug: 'man-city', c1: '#6CABDD', c2: '#00285E', meme: "Til the wheels fall off." },
     { name: 'Arsenal', slug: 'arsenal', c1: '#EF0107', c2: '#023474', meme: "Victoria Concordia Crescit." },
     { name: 'Chelsea', slug: 'chelsea', c1: '#034694', c2: '#FFFFFF', meme: "Keep the Blue Flag Flying High." },
     { name: 'Tottenham Hotspur', slug: 'tottenham', c1: '#132257', c2: '#FFFFFF', meme: "To Dare Is To Do." },
@@ -595,28 +595,29 @@
 
   function drawCard() {
     const canvas = document.getElementById('fanCardCanvas');
-    const W = 720;
-    // Layout is entirely deterministic (fixed field count, fixed row heights),
-    // so compute the exact content height up front instead of guessing a
-    // fixed canvas size — this is what caused the empty gap bug before.
-    const headerH = 150;
-    const barH = 40;
-    const bodyTop = headerH + 5 + barH + 24;
-    const numFields = 5;
-    const rowH = 74;
-    const fieldsEndY = bodyTop + numFields * rowH;
-    const quoteH = 74;
-    const quoteGap = 14;
-    const sigLabelGap = 100; // sigY = quoteY + 100
-    const sigBoxH = 70;
-    const sigBottomPad = 24;
-    const footerH = 150;
+    const W = 640;
 
-    const quoteY = fieldsEndY + quoteGap;
-    const sigY = quoteY + sigLabelGap;
-    const sigBottom = sigY + 12 + sigBoxH;
-    const footerY = sigBottom + sigBottomPad;
-    const H = footerY + footerH;
+    // Layout constants (Draft D — matches the chosen mockup exactly)
+    const stripH = 6;
+    const headerH = 82;
+    const bodyPadX = 28;
+    const bodyPadTop = 22;
+    const photoSize = 96;
+    const topRowH = photoSize;
+    const dividerGap = 16;
+    const detailRowH = 46;
+    const quoteH = 74;
+    const sigRowH = 50;
+    const bottomPad = 22;
+
+    const bodyTop = stripH + headerH + bodyPadTop;
+    const topRowY = bodyTop;
+    const dividerY = topRowY + topRowH + dividerGap;
+    const detailY = dividerY + 18;
+    const detailEndY = detailY + detailRowH;
+    const quoteY = detailEndY + 16;
+    const sigY = quoteY + quoteH + 20;
+    const H = sigY + sigRowH + bottomPad;
 
     canvas.width = W;
     canvas.height = H;
@@ -625,238 +626,229 @@
     const club = CLUBS[clubSelect.value];
     const imgs = loadClubImages(club);
 
-    // ---------- Base ----------
-    ctx.fillStyle = '#F5F3EE';
+    // ---------- Stadium-toned background ----------
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+    bgGrad.addColorStop(0, shadeColor(club.c1, -55));
+    bgGrad.addColorStop(0.45, shadeColor(club.c1, -78));
+    bgGrad.addColorStop(1, '#0A0A0A');
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, W, H);
 
-    // ---------- Header band ----------
-    const headerGrad = ctx.createLinearGradient(0, 0, W, headerH);
-    headerGrad.addColorStop(0, club.c1);
-    headerGrad.addColorStop(1, hexToRgba(club.c1, 0.82));
-    ctx.fillStyle = headerGrad;
-    ctx.fillRect(0, 0, W, headerH);
+    // Radial club-color glow behind header
+    const glow = ctx.createRadialGradient(W/2, 0, 0, W/2, 0, W * 0.8);
+    glow.addColorStop(0, hexToRgba(club.c1, 0.35));
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
 
-    ctx.strokeStyle = club.c2;
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.moveTo(0, headerH);
-    ctx.lineTo(W, headerH);
-    ctx.stroke();
+    // Subtle scanline texture (evokes stadium floodlight/crowd noise)
+    ctx.save();
+    ctx.globalAlpha = 0.03;
+    ctx.fillStyle = '#fff';
+    for (let y = 0; y < H; y += 4) {
+      ctx.fillRect(0, y, W, 1);
+    }
+    ctx.restore();
 
-    // Crest (left)
-    const crestSize = 96;
-    if (imgs.crest.complete && imgs.crest.naturalWidth > 0) {
-      ctx.drawImage(imgs.crest, 28, (headerH - crestSize) / 2, crestSize, crestSize);
+    // Stadium photo watermark, low opacity, behind everything
+    if (imgs.stadium.complete && imgs.stadium.naturalWidth > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.16;
+      const iw = imgs.stadium.naturalWidth, ih = imgs.stadium.naturalHeight;
+      const scale = Math.max(W / iw, H / ih);
+      const dw = iw * scale, dh = ih * scale;
+      ctx.drawImage(imgs.stadium, W/2 - dw/2, H/2 - dh/2, dw, dh);
+      ctx.restore();
     }
 
-    // Club name + tagline (center-left, next to crest)
-    const nameTextColor = isLightColor(club.c1) ? '#111' : '#fff';
+    // ---------- Top gradient strip ----------
+    const stripGrad = ctx.createLinearGradient(0, 0, W, 0);
+    stripGrad.addColorStop(0, club.c1);
+    stripGrad.addColorStop(1, club.c2);
+    ctx.fillStyle = stripGrad;
+    ctx.fillRect(0, 0, W, stripH);
+
+    // ---------- Header ----------
+    const headerY = stripH;
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, headerY + headerH);
+    ctx.lineTo(W, headerY + headerH);
+    ctx.stroke();
+
+    // Crest circle
+    const crestR = 21;
+    const crestCx = bodyPadX + crestR, crestCy = headerY + headerH/2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(crestCx, crestCy, crestR, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fill();
+    ctx.clip();
+    if (imgs.crest.complete && imgs.crest.naturalWidth > 0) {
+      ctx.drawImage(imgs.crest, crestCx - crestR, crestCy - crestR, crestR*2, crestR*2);
+    }
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(crestCx, crestCy, crestR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Club name + "Supporter Card"
+    const headerTextX = crestCx + crestR + 14;
     ctx.textAlign = 'left';
-    ctx.fillStyle = nameTextColor;
-    ctx.font = '400 40px Anton, sans-serif';
-    ctx.fillText(club.name.toUpperCase(), 28 + crestSize + 20, 66);
-
-    ctx.font = '600 15px Inter, sans-serif';
-    ctx.fillStyle = hexToRgba(nameTextColor === '#fff' ? '#ffffff' : '#111111', 0.85);
-    ctx.fillText('FOOTBALL CLUB', 28 + crestSize + 20, 90);
-
-    ctx.font = '400 17px Anton, sans-serif';
-    ctx.fillStyle = club.c2 === '#FFFFFF' ? nameTextColor : club.c2;
-    ctx.fillText(club.meme.toUpperCase(), 28 + crestSize + 20, 120);
-
-    // Algotred brand mark (top right)
-    ctx.textAlign = 'right';
-    ctx.font = '600 13px Inter, sans-serif';
-    ctx.fillStyle = hexToRgba(nameTextColor === '#fff' ? '#ffffff' : '#111111', 0.75);
-    ctx.fillText('▲ ALGOTRED', W - 24, 28);
-
-    // ---------- "OFFICIAL SUPPORTER" bar ----------
-    const barY = headerH + 5;
-    ctx.fillStyle = '#161616';
-    ctx.fillRect(0, barY, W, barH);
-    ctx.textAlign = 'center';
     ctx.fillStyle = '#fff';
-    ctx.font = '600 16px Inter, sans-serif';
-    ctx.fillText('OFFICIAL SUPPORTER CARD', W / 2, barY + 26);
+    ctx.font = '700 20px "Space Grotesk", sans-serif';
+    ctx.fillText(club.name, headerTextX, headerY + headerH/2 - 10);
 
-    // ---------- Body ----------
-    const leftColX = 28;
-    const leftColW = 380;
-    const rightColX = leftColX + leftColW + 20;
-    const rightColW = W - rightColX - 28;
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = '600 10px Inter, sans-serif';
+    ctx.fillText('SUPPORTER CARD', headerTextX, headerY + headerH/2 + 4);
 
-    // Field rows (left column)
-    const fields = [
-      { label: 'FULL NAME', value: (cardData.name || '—').toUpperCase() },
-      { label: 'GENDER', value: cardData.gender.toUpperCase() },
-      { label: 'TOWN', value: (cardData.town || '—').toUpperCase() },
+    ctx.fillStyle = club.c2 === '#FFFFFF' ? 'rgba(255,255,255,0.8)' : club.c2;
+    ctx.font = 'italic 500 11px Inter, sans-serif';
+    let headerMotto = club.meme;
+    if (headerMotto.length > 34) headerMotto = headerMotto.slice(0, 33) + '…';
+    ctx.fillText(headerMotto, headerTextX, headerY + headerH/2 + 18);
+
+    // Algotred mark, top right
+    ctx.textAlign = 'right';
+    ctx.font = '700 11px Inter, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.fillText('▲ ALGOTRED', W - bodyPadX, headerY + headerH/2 + 4);
+
+    // ---------- Top row: photo + fields ----------
+    const photoX = bodyPadX;
+    const photoY = topRowY;
+    ctx.save();
+    roundRect(ctx, photoX, photoY, photoSize, photoSize, 12);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fill();
+    ctx.clip();
+    if (uploadedPhoto) {
+      const iw = uploadedPhoto.width, ih = uploadedPhoto.height;
+      const scale = Math.max(photoSize/iw, photoSize/ih);
+      const dw = iw*scale, dh = ih*scale;
+      ctx.drawImage(uploadedPhoto, photoX + photoSize/2 - dw/2, photoY + photoSize/2 - dh/2, dw, dh);
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.fillRect(photoX, photoY, photoSize, photoSize);
+      ctx.textAlign = 'center';
+      ctx.font = '40px sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillText('👤', photoX + photoSize/2, photoY + photoSize/2 + 14);
+    }
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, photoX, photoY, photoSize, photoSize, 12);
+    ctx.stroke();
+
+    // Field rows beside photo
+    const fieldsX = photoX + photoSize + 16;
+    const fieldRows = [
+      { label: 'NAME', value: cardData.name || '—' },
+      { label: 'GENDER', value: cardData.gender },
+      { label: 'TOWN', value: cardData.town || '—' },
+    ];
+    const fieldGap = topRowH / fieldRows.length;
+    fieldRows.forEach((f, i) => {
+      const rowY = topRowY + i * fieldGap + fieldGap/2;
+      ctx.textAlign = 'left';
+      ctx.font = '600 10px Inter, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText(f.label, fieldsX, rowY - 4);
+      ctx.font = '600 15px Inter, sans-serif';
+      ctx.fillStyle = '#fff';
+      let val = f.value;
+      if (val.length > 22) val = val.slice(0, 21) + '…';
+      ctx.fillText(val, fieldsX, rowY + 14);
+    });
+
+    // ---------- Divider ----------
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(bodyPadX, dividerY);
+    ctx.lineTo(W - bodyPadX, dividerY);
+    ctx.stroke();
+
+    // ---------- Detail grid (Favourite Player / GOAT) ----------
+    const detailFields = [
       { label: 'FAVOURITE PLAYER', value: cardData.player || '—' },
       { label: 'FOOTBALL GOAT', value: cardData.goat || '—' },
     ];
-
-    let fy = bodyTop;
-    fields.forEach(f => {
-      // label chip
-      ctx.fillStyle = club.c1;
-      roundRect(ctx, leftColX, fy, 150, 24, 5);
-      ctx.fill();
-      ctx.fillStyle = club.c2 === '#FFFFFF' || isLightColor(club.c1) === false ? '#fff' : '#111';
-      ctx.font = '700 11px Inter, sans-serif';
+    const colW = (W - bodyPadX*2 - 14) / 2;
+    detailFields.forEach((f, i) => {
+      const colX = bodyPadX + i * (colW + 14);
       ctx.textAlign = 'left';
-      ctx.fillText(f.label, leftColX + 10, fy + 16);
-
-      // value box
-      const boxY = fy + 28;
-      const boxH = 36;
-      ctx.strokeStyle = '#D8D5CC';
-      ctx.lineWidth = 1.5;
+      ctx.font = '600 10px Inter, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText(f.label, colX, detailY);
+      ctx.font = '600 16px Inter, sans-serif';
       ctx.fillStyle = '#fff';
-      roundRect(ctx, leftColX, boxY, leftColW, boxH, 7);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = '#161616';
-      ctx.font = '700 18px Inter, sans-serif';
-      let displayVal = f.value;
-      const maxChars = 30;
-      if (displayVal.length > maxChars) displayVal = displayVal.slice(0, maxChars - 1) + '…';
-      ctx.fillText(displayVal, leftColX + 12, boxY + 24);
-
-      fy += rowH;
+      let val = f.value;
+      if (val.length > 18) val = val.slice(0, 17) + '…';
+      ctx.fillText(val, colX, detailY + 20);
     });
 
-    // ---------- Photo box (right column) ----------
-    const photoBoxY = bodyTop;
-    const photoBoxH = fy - bodyTop - 10;
+    // ---------- Quote block (glass panel, italic) ----------
     ctx.save();
-    roundRect(ctx, rightColX, photoBoxY, rightColW, photoBoxH, 10);
-    ctx.fillStyle = '#111';
+    roundRect(ctx, bodyPadX, quoteY, W - bodyPadX*2, quoteH, 8);
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
     ctx.fill();
-    ctx.clip();
+    ctx.restore();
+    ctx.fillStyle = club.c1;
+    ctx.fillRect(bodyPadX, quoteY, 3, quoteH);
 
-    // Crest watermark behind photo
-    if (imgs.crest.complete && imgs.crest.naturalWidth > 0) {
-      ctx.globalAlpha = 0.18;
-      const wmSize = rightColW * 1.4;
-      ctx.drawImage(imgs.crest, rightColX + rightColW/2 - wmSize/2, photoBoxY + photoBoxH/2 - wmSize/2, wmSize, wmSize);
-      ctx.globalAlpha = 1;
-    }
-
-    // Photo (cover-fit, leaves room for name strip at bottom)
-    const photoAreaH = photoBoxH - 56;
-    if (uploadedPhoto) {
-      const iw = uploadedPhoto.width, ih = uploadedPhoto.height;
-      const scale = Math.max(rightColW / iw, photoAreaH / ih);
-      const dw = iw * scale, dh = ih * scale;
-      ctx.drawImage(
-        uploadedPhoto,
-        rightColX + rightColW/2 - dw/2,
-        photoBoxY + photoAreaH/2 - dh/2,
-        dw, dh
-      );
-    } else {
-      ctx.fillStyle = 'rgba(255,255,255,0.08)';
-      ctx.fillRect(rightColX, photoBoxY, rightColW, photoAreaH);
-      ctx.textAlign = 'center';
-      ctx.font = '54px sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      ctx.fillText('👤', rightColX + rightColW/2, photoBoxY + photoAreaH/2 + 18);
-    }
-
-    // Name strip at bottom of photo box
-    const stripY = photoBoxY + photoAreaH;
-    ctx.fillStyle = 'rgba(0,0,0,0.65)';
-    ctx.fillRect(rightColX, stripY, rightColW, 56);
-    ctx.textAlign = 'center';
     ctx.fillStyle = '#fff';
-    ctx.font = '600 15px Inter, sans-serif';
-    let stripName = (cardData.name || 'FAN').toUpperCase();
-    if (stripName.length > 20) stripName = stripName.slice(0, 19) + '…';
-    ctx.fillText(stripName, rightColX + rightColW/2, stripY + 24);
-    ctx.font = '500 11px Inter, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.fillText(`PROUD ${club.name.toUpperCase()} FAN`, rightColX + rightColW/2, stripY + 42);
-
-    ctx.restore();
-    ctx.strokeStyle = club.c1;
-    ctx.lineWidth = 3;
-    roundRect(ctx, rightColX, photoBoxY, rightColW, photoBoxH, 10);
-    ctx.stroke();
-
-    // ---------- Meme quote banner ----------
-    ctx.save();
-    roundRect(ctx, 28, quoteY, W - 56, 74, 12);
-    ctx.fillStyle = hexToRgba(club.c1, 0.1);
-    ctx.fill();
-    ctx.strokeStyle = hexToRgba(club.c1, 0.4);
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.fillStyle = club.c1 === '#FFFFFF' ? '#161616' : club.c1;
-    ctx.font = '400 24px Anton, sans-serif';
-    ctx.textAlign = 'center';
-    wrapText(ctx, `"${club.meme}"`, W / 2, quoteY + 34, W - 100, 28);
-
-    // ---------- Signature ----------
+    ctx.font = 'italic 400 18px "DM Serif Display", serif';
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#161616';
-    ctx.font = '700 11px Inter, sans-serif';
-    ctx.fillText('AUTHORISED SIGNATURE', 28, sigY);
+    wrapText(ctx, `"${club.meme}"`, bodyPadX + 16, quoteY + 26, W - bodyPadX*2 - 30, 22, 'left');
 
-    ctx.strokeStyle = '#D8D5CC';
-    ctx.lineWidth = 1.5;
-    ctx.fillStyle = '#fff';
-    roundRect(ctx, 28, sigY + 12, W - 56, 70, 8);
-    ctx.fill();
+    // ---------- Signature (half width) ----------
+    const sigLabelY = sigY;
+    ctx.textAlign = 'left';
+    ctx.font = '600 10px Inter, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillText('SIGNATURE', bodyPadX, sigLabelY);
+
+    const sigBoxW = (W - bodyPadX*2) * 0.45;
+    const sigLineY = sigLabelY + 30;
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(bodyPadX, sigLineY);
+    ctx.lineTo(bodyPadX + sigBoxW, sigLineY);
     ctx.stroke();
 
     if (sigHasContent) {
-      ctx.drawImage(sigCanvas, 40, sigY + 20, 260, 54);
+      ctx.drawImage(sigCanvas, bodyPadX, sigLineY - 32, sigBoxW, 30);
     }
 
-    // ---------- Stadium footer band ----------
-    ctx.save();
-    roundRect(ctx, 0, footerY, W, footerH, 0);
-    ctx.clip();
-    if (imgs.stadium.complete && imgs.stadium.naturalWidth > 0) {
-      const iw = imgs.stadium.naturalWidth, ih = imgs.stadium.naturalHeight;
-      const scale = Math.max(W / iw, footerH / ih);
-      const dw = iw * scale, dh = ih * scale;
-      ctx.drawImage(imgs.stadium, W/2 - dw/2, footerY + footerH/2 - dh/2, dw, dh);
-    } else {
-      ctx.fillStyle = '#161616';
-      ctx.fillRect(0, footerY, W, footerH);
-    }
-    // dark overlay for legibility
-    const footerGrad = ctx.createLinearGradient(0, footerY, 0, footerY + footerH);
-    footerGrad.addColorStop(0, 'rgba(0,0,0,0.3)');
-    footerGrad.addColorStop(1, 'rgba(0,0,0,0.75)');
-    ctx.fillStyle = footerGrad;
-    ctx.fillRect(0, footerY, W, footerH);
-    ctx.restore();
-
-    ctx.textAlign = 'center';
-    ctx.fillStyle = club.c2 === '#FFFFFF' ? '#fff' : club.c2;
-    ctx.font = '400 28px Anton, sans-serif';
-    wrapText(ctx, club.meme.toUpperCase(), W/2, footerY + 46, W - 80, 32);
-
-    ctx.font = '600 13px Inter, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    ctx.fillText('Made with Algotred Fan Card Generator', W/2, footerY + footerH - 16);
+    ctx.textAlign = 'right';
+    ctx.font = '500 9px Inter, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillText('Made with Algotred', W - bodyPadX, sigLabelY + 4);
 
     return canvas;
   }
 
-  function isLightColor(hex) {
+  function shadeColor(hex, percent) {
     const r = parseInt(hex.slice(1,3), 16);
     const g = parseInt(hex.slice(3,5), 16);
     const b = parseInt(hex.slice(5,7), 16);
-    const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
-    return luminance > 0.6;
+    const t = percent < 0 ? 0 : 255;
+    const p = Math.abs(percent) / 100;
+    const nr = Math.round((t - r) * p + r);
+    const ng = Math.round((t - g) * p + g);
+    const nb = Math.round((t - b) * p + b);
+    return `rgb(${nr},${ng},${nb})`;
   }
 
-  function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight, mode) {
     const words = text.split(' ');
     let line = '';
     let lines = [];
@@ -870,7 +862,8 @@
       }
     }
     lines.push(line);
-    const startY = y - ((lines.length - 1) * lineHeight) / 2;
+    // mode 'left' flows top-down from y; default centers vertically around y
+    const startY = mode === 'left' ? y : y - ((lines.length - 1) * lineHeight) / 2;
     lines.forEach((l, i) => ctx.fillText(l.trim(), x, startY + i * lineHeight));
   }
 
